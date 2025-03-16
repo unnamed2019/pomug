@@ -4,12 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import gsap from "gsap";
 import './App.css';
 
-
 function MugModel() {
   const { scene } = useGLTF("/pomug/applemug.glb");
   const mugRef = useRef();
-
-  const clonedScene = useMemo(() => scene.clone(), [scene]); 
+  const clonedScene = useMemo(() => scene.clone(), [scene]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     clonedScene.traverse((child) => {
@@ -19,19 +19,52 @@ function MugModel() {
     });
 
     if (mugRef.current) {
-      mugRef.current.rotation.y = Math.PI / 2;
+      mugRef.current.rotation.set(0, 90, 0);
     }
   }, [clonedScene]);
 
+  useEffect(() => {
+    const handleMouseDown = () => setIsDragging(true);
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      gsap.to(mugRef.current.rotation, {
+        x: 0,
+        duration: 0.8,
+        ease: "power2.out",
+      });
+    };
+
+    const handleMouseMove = (event) => {
+      if (!isDragging || !mugRef.current) return;
+
+      const deltaX = event.movementX * 0.01;
+      const deltaY = event.movementY * 0.01;
+
+      mugRef.current.rotation.y += deltaX; 
+      mugRef.current.rotation.x += deltaY; 
+
+      setRotation({ x: mugRef.current.rotation.x, y: mugRef.current.rotation.y });
+    };
+
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousemove", handleMouseMove);
+
+    return () => {
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, [isDragging]);
+
   useFrame(() => {
-    if (mugRef.current) {
+    if (mugRef.current && !isDragging) {
       mugRef.current.rotation.y += 0.003; 
     }
   });
 
   return <primitive ref={mugRef} object={clonedScene} position={[0, 0, 0]} scale={0.9} />;
 }
-
 
 function DecomposedMug() {
   const { scene } = useGLTF("/pomug/applemug.glb");
